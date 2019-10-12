@@ -1,6 +1,17 @@
+# vis-network-visual-editing
+
+## Goal
+
+Add visual editing capabilities to Vis.js Network graphs
 
 
+## Work in Progress
 
-https://plnkr.co/edit/QQYxLr3D1P0idQXUmemS?p=preview
+***This is currently just a proof of concept***
 
-https://visjs.github.io/vis-network/examples/network/other/manipulation.html
+You can see it here https://next.plnkr.co/edit/f7gyi7toiAUNeUNZ?preview
+
+## Inspiration / Credits / Resources
+
+- Vis.js Network + Wheelnav concept: https://plnkr.co/edit/QQYxLr3D1P0idQXUmemS?p=preview=
+- Manipulation code: https://visjs.github.io/vis-network/examples/network/other/manipulation.html

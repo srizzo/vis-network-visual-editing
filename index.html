@@ -1,0 +1,267 @@
+﻿<!doctype html>
+<html>
+<head>
+  <style type="text/css">
+    #mynetwork {
+      position:relative;
+      width: 600px;
+      height: 600px;
+      border: 1px solid lightgray;
+    }
+
+    #operation {
+      font-size:28px;
+    }
+    #network-popUp {
+      display:none;
+      position:absolute;
+      top:100px;
+      left:170px;
+      z-index:299;
+      width:250px;
+      height:120px;
+      background-color: #f9f9f9;
+      border-style:solid;
+      border-width:3px;
+      border-color: #5394ed;
+      padding:10px;
+      text-align: center;
+    }
+
+    div.popupMenu {
+      position:absolute;
+      top:0px;
+      left:0px;
+      width:150px;
+      height:150px;
+      background-color:transparent;
+    }
+  </style>
+
+  <script type="text/javascript" src="https://unpkg.com/vis-network@6.1.1/dist/vis-network.min.js"></script>
+  <link href="https://unpkg.com/vis-network@6.1.1/dist/vis-network.min.css" rel="stylesheet" type="text/css" />
+
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/wheelnav@1.7.1/js/dist/raphael.min.js"></script>
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/wheelnav@1.7.1/js/dist/raphael.icons.min.js"></script>
+  <script type="text/javascript" src="https://cdn.jsdelivr.net/npm/wheelnav@1.7.1/js/dist/wheelnav.min.js"></script>
+
+  <script type="text/javascript">
+    var nodes = null;
+    var edges = null;
+    var network = null;
+    var popupMenu = undefined;
+
+    function destroy() {
+      if (network !== null) {
+        network.destroy();
+        network = null;
+      }
+    }
+
+    function drawGraph() {
+      destroy();
+
+      nodes = [];
+      edges = [];
+      var connectionCount = [];
+
+      // randomly create some nodes and edges
+      var nodeCount = 25;
+      for (var i = 0; i < nodeCount; i++) {
+          nodes.push({
+          id: i,
+          label: String(i)
+        });
+
+        connectionCount[i] = 0;
+
+        // create edges in a scale-free-network way
+        if (i == 1) {
+          var from = i;
+          var to = 0;
+          edges.push({
+            from: from,
+            to: to
+          });
+          connectionCount[from]++;
+          connectionCount[to]++;
+        }
+        else if (i > 1) {
+          var conn = edges.length * 2;
+          var rand = Math.floor(Math.random() * conn);
+          var cum = 0;
+          var j = 0;
+          while (j < connectionCount.length && cum < rand) {
+            cum += connectionCount[j];
+            j++;
+          }
+
+          var from = i;
+          var to = j;
+          edges.push({
+            from: from,
+            to: to
+          });
+          connectionCount[from]++;
+          connectionCount[to]++;
+        }
+      }
+      // create a network
+      var container = document.getElementById('mynetwork');
+      var data = {
+        nodes: nodes,
+        edges: edges
+      };
+      var options = {
+        manipulation: {
+          addNode: function (data, callback) {
+            // filling in the popup DOM elements
+            document.getElementById('operation').innerHTML = "Add Node";
+            document.getElementById('node-id').value = data.id;
+            document.getElementById('node-label').value = data.label;
+            document.getElementById('saveButton').onclick = saveData.bind(this, data, callback);
+            document.getElementById('cancelButton').onclick = clearPopUp.bind();
+            document.getElementById('network-popUp').style.display = 'block';
+          },
+          editNode: function (data, callback) {
+            // filling in the popup DOM elements
+            document.getElementById('operation').innerHTML = "Edit Node";
+            document.getElementById('node-id').value = data.id;
+            document.getElementById('node-label').value = data.label;
+            document.getElementById('saveButton').onclick = saveData.bind(this, data, callback);
+            document.getElementById('cancelButton').onclick = cancelEdit.bind(this,callback);
+            document.getElementById('network-popUp').style.display = 'block';
+          },
+          addEdge: function (data, callback) {
+            if (data.from == data.to) {
+              var r = confirm("Do you want to connect the node to itself?");
+              if (r == true) {
+                callback(data);
+              }
+            }
+            else {
+              callback(data);
+            }
+          }
+        },
+        physics: { stabilization: false }
+      };
+      network = new vis.Network(container, data, options);
+
+      // add event listeners
+      network.on('select', function(params) {
+        removePopupMenu()
+      });
+
+      network.on("hold", function (params) {
+        console.log(network.getScale());
+        console.log(params);
+        if(params.nodes && params.nodes.length>0){
+          console.log(network.getPositions(params.nodes));
+          var position = network.getPositions(params.nodes)[params.nodes[0]];
+          console.log(position.x,position.y);
+          position = network.canvasToDOM(position);
+          console.log(position.x,position.y);
+          params.event = "[original event]";
+          if (popupMenu !== undefined) {
+            popupMenu.parentNode.removeChild(popupMenu);
+            popupMenu = undefined;
+          }
+          popupMenu = document.createElement("div");
+          popupMenu.setAttribute('id','test');
+          setTimeout(function(){
+            wheel('test');
+          },0);
+
+          var offsetLeft = container.offsetLeft;
+          var offsetTop = container.offsetTop;
+          popupMenu.className = 'popupMenu';
+          popupMenu.style.left = position.x-75+'px';
+          popupMenu.style.top = position.y-75+'px';
+          container.appendChild(popupMenu);
+        }
+
+     });
+    }
+
+    function removePopupMenu() {
+      if (popupMenu !== undefined) {
+        popupMenu.parentNode.removeChild(popupMenu);
+        popupMenu = undefined;
+      }
+    }
+
+    var wheel = function (id) {
+      var pieWheel = new wheelnav(id);
+
+      pieWheel.slicePathFunction = slicePath().MenuSlice;
+      pieWheel.sliceSelectedPathFunction = slicePath().MenuSliceSelectedLine;
+
+      // var minRadiusPercent = .25*network.getScale();
+      // var maxRadiusPercent = 0.9*network.getScale();
+      //
+      // if(maxRadiusPercent<0.7){
+      //   maxRadiusPercent =0.7
+      // }
+
+      pieWheel.spreaderEnable = false;
+      pieWheel.wheelRadius = 1.5 * pieWheel.wheelRadius;
+      pieWheel.minPercent = 0.5;
+      pieWheel.maxPercent = 0.5;
+      pieWheel.clickModeRotate = false;
+      pieWheel.titleRotateAngle = 0;
+      pieWheel.colors = ['#b09982'];
+      pieWheel.selectedNavItemIndex = null
+      pieWheel.createWheel([icon.plus, icon.minus, icon.arrowup, icon.edit]);
+
+
+      function close() {
+        removePopupMenu();
+        pieWheel.removeWheel();
+      }
+
+      pieWheel.navItems[0].navigateFunction = function () { network.addNodeMode(); close(); };
+      pieWheel.navItems[1].navigateFunction = function () { network.deleteSelected(); close() };
+      pieWheel.navItems[2].navigateFunction = function () { network.addEdgeMode(); close() };
+      pieWheel.navItems[3].navigateFunction = function () { network.editNode(); close() };
+
+    };
+
+    function clearPopUp() {
+      document.getElementById('saveButton').onclick = null;
+      document.getElementById('cancelButton').onclick = null;
+      document.getElementById('network-popUp').style.display = 'none';
+    }
+
+    function cancelEdit(callback) {
+      clearPopUp();
+      callback(null);
+    }
+
+    function saveData(data,callback) {
+      data.id = document.getElementById('node-id').value;
+      data.label = document.getElementById('node-label').value;
+      clearPopUp();
+      callback(data);
+    }
+
+  </script>
+
+<body onload="drawGraph();">
+
+<p>Click node and hold to open menu</p>
+
+<div id="mynetwork"></div>
+
+<div id="network-popUp">
+  <span id="operation">node</span> <br>
+  <table style="margin:auto;">
+    <tr><td>id</td><td><input id="node-id" value="new value" /></td></tr>
+    <tr><td>label</td><td><input id="node-label" value="new value" /></td></tr>
+  </table>
+  <input type="button" value="save" id="saveButton" />
+  <input type="button" value="cancel" id="cancelButton" />
+</div>
+
+</body>
+</html>
